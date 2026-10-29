@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visualizador de conversas</title>
+<style>
+:root{--bg:#f5f6f8;--sf:#fff;--tx:#1b1f24;--mu:#6b7280;--bd:#e2e5ea;--ac:#2563eb;--on:#fff;--bub:#eceff3;--sel:#e8f0ff;--hd:#f0f2f5;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161a;--sf:#1b1e23;--tx:#e8eaed;--mu:#9aa1ab;--bd:#2c3038;--ac:#3b82f6;--on:#fff;--bub:#2a2e35;--sel:#22304a;--hd:#20242a}}
+:root[data-theme="dark"]{--bg:#14161a;--sf:#1b1e23;--tx:#e8eaed;--mu:#9aa1ab;--bd:#2c3038;--ac:#3b82f6;--on:#fff;--bub:#2a2e35;--sel:#22304a;--hd:#20242a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{display:flex;height:100%;min-width:0}
+main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--sf);border-bottom:1px solid var(--bd)}
+header h1{font-size:15px;margin:0;flex:1;font-weight:600}
+.btn{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+.btn.pri{background:var(--ac);color:var(--on);border-color:var(--ac)}
+#count{color:var(--mu);font-size:12px}
+#list{flex:1;overflow:auto}
+.hdr,.row{display:grid;grid-template-columns:3.2rem 6.5rem 1fr;gap:12px;align-items:center;padding:10px 16px;width:100%}
+.hdr{position:sticky;top:0;background:var(--hd);color:var(--mu);font-size:12px;font-weight:600;border-bottom:1px solid var(--bd);z-index:1}
+.row{border:0;border-bottom:1px solid var(--bd);background:var(--sf);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.row:hover{background:var(--hd)}
+.row.sel{background:var(--sel)}
+.row .n,.row .d{color:var(--mu);font-variant-numeric:tabular-nums}
+.row .p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.drop{margin:10vh auto;max-width:420px;text-align:center;padding:40px 24px;border:2px dashed var(--bd);border-radius:14px;color:var(--mu);background:var(--sf)}
+.drop.over{border-color:var(--ac)}
+.drop b{display:block;color:var(--tx);font-size:16px;margin-bottom:6px}
+aside{display:none;width:min(480px,100%);flex:none;flex-direction:column;background:var(--sf);border-left:1px solid var(--bd)}
+aside.open{display:flex}
+@media (max-width:800px){aside{position:fixed;inset:0;z-index:5;border:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}}
+.ph{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--bd)}
+.ph .m{flex:1;min-width:0}
+.ph .t{font-weight:600}
+.ph .s{color:var(--mu);font-size:12px;word-break:break-all}
+#chat{flex:1;overflow:auto;padding:8px 16px 24px;display:flex;flex-direction:column;gap:6px}
+.sec{align-self:stretch;display:flex;align-items:center;gap:10px;margin:16px 0 6px;color:var(--mu);font:inherit;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:none;border:0;padding:0;width:100%;cursor:pointer}
+.sec:hover{color:var(--tx)}
+.chv{font-size:12px;transition:transform .15s}
+.sec.closed .chv{transform:rotate(-90deg)}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp.off{display:none}
+.sec::before,.sec::after{content:"";height:1px;background:var(--bd);flex:1}
+.msg{display:flex;align-items:flex-end;gap:6px;max-width:92%;align-self:flex-start}
+.msg.cli{align-self:flex-end;flex-direction:row-reverse}
+.bub{background:var(--bub);padding:8px 12px;border-radius:14px 14px 14px 4px;overflow-wrap:anywhere}
+.msg.cli .bub{background:var(--ac);color:var(--on);border-radius:14px 14px 4px 14px}
+.tg{border:1px solid var(--bd);background:transparent;color:var(--mu);border-radius:10px;font-size:10px;line-height:1;padding:3px 6px;cursor:pointer;white-space:nowrap}
+.tg:hover{color:var(--tx)}
+.note{align-self:center;color:var(--mu);font-size:11px;font-style:italic;padding:2px 10px;text-align:center}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <main>
+    <header>
+      <h1>Conversas</h1>
+      <span id="count"></span>
+      <button class="btn pri" id="pick">Carregar planilha</button>
+      <input type="file" id="file" accept=".csv,.xlsx,.xls,.tsv,.txt" hidden>
+    </header>
+    <div id="list"></div>
+  </main>
+  <aside id="panel">
+    <div class="ph">
+      <div class="m"><div class="t" id="pt"></div><div class="s" id="ps"></div></div>
+      <button class="btn" id="close" aria-label="Fechar">✕</button>
+    </div>
+    <div id="chat"></div>
+  </aside>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const norm=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+let rows=[],cur=-1;
+
+const RX={
+  hold:/use seu cart[ãa]o|para sua seguran[çc]a essa liga[çc][ãa]o|por favor aguarde que em breve|aguarde um instante enquanto/i,
+  handoff:/transfiro|encaminh\w+.*atendentes?|atendentes? ir[áa]|em poucas palavras/i,
+  nps:/pesquisa|avalia[çc][ãa]o do meu atendimento|escala de 0 a/i
+};
+
+function segment(t){
+  const ss=String(t||"").replace(/\s+/g," ").trim().split(/(?<=[.?!…])\s+/).filter(Boolean);
+  let ph="ura",pend=false;
+  return ss.map(s=>{
+    if(RX.nps.test(s)) ph="nps";
+    else if(ph==="ura"&&pend&&!RX.hold.test(s)) ph="at";
+    if(ph==="ura"&&RX.handoff.test(s)) pend=true;
+    return {ph,s,hold:ph==="at"&&RX.hold.test(s)};
+  });
+}
+
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+
+function fmtDate(v){
+  if(v instanceof Date) return v.toLocaleDateString("pt-BR");
+  return String(v??"");
+}
+
+function ingest(data){
+  const keys=Object.keys(data[0]||{});
+  const find=r=>keys.find(k=>r.test(norm(k)));
+  const kT=find(/transcri/)||keys[keys.length-1], kD=find(/^data/), kA=find(/audio|nome/), kS=find(/segmento/);
+  rows=data.map((r,i)=>({
+    line:i+2, date:fmtDate(r[kD]), audio:String(r[kA]??""), seg:String(r[kS]??""), text:String(r[kT]??"")
+  })).filter(r=>r.text.trim());
+  cur=-1;closePanel();renderList();
+}
+
+function renderList(){
+  const L=$("#list");L.replaceChildren();
+  $("#count").textContent=rows.length?rows.length+" registros":"";
+  if(!rows.length){
+    const d=el("div","drop");
+    d.append(el("b",null,"Arraste a planilha aqui"),el("span",null,"ou use “Carregar planilha” (.csv, .xlsx)"));
+    L.append(d);return;
+  }
+  const h=el("div","hdr");h.append(el("span",null,"Linha"),el("span",null,"Data"),el("span",null,"Prévia"));
+  L.append(h);
+  rows.forEach((r,i)=>{
+    const b=el("button","row"+(i===cur?" sel":""));
+    b.append(el("span","n",r.line),el("span","d",r.date),el("span","p",r.text));
+    b.onclick=()=>openRow(i);
+    L.append(b);
+  });
+}
+
+function openRow(i){
+  cur=i;const r=rows[i];
+  document.querySelectorAll(".row").forEach((b,j)=>b.classList.toggle("sel",j===i));
+  $("#pt").textContent="Linha "+r.line+" · "+r.date+(r.seg?" · "+r.seg:"");
+  $("#ps").textContent=r.audio;
+  const C=$("#chat");C.replaceChildren();
+  const labels={ura:"URA",at:"Atendimento",nps:"NPS"};
+  let last=null,G;
+  segment(r.text).forEach(m=>{
+    if(m.ph!==last){
+      const open=m.ph!=="ura";
+      const h=el("button","sec"+(open?"":" closed"));
+      h.append(el("span","chv","▾"),el("span",null,labels[m.ph]));
+      const g=el("div","grp"+(open?"":" off"));
+      h.onclick=()=>{const c=h.classList.toggle("closed");g.classList.toggle("off",c)};
+      C.append(h,g);G=g;last=m.ph;
+    }
+    if(m.hold){G.append(el("div","note","Locução de espera: "+m.s));return}
+    const row=el("div","msg");
+    row.append(el("div","bub",m.s));
+    if(m.ph==="at"){
+      const t=el("button","tg","Atendente ⇒");
+      t.title="Alternar entre atendente e cliente (apenas visual)";
+      t.onclick=()=>{const c=row.classList.toggle("cli");t.textContent=c?"⇐ Cliente":"Atendente ⇒"};
+      row.append(t);
+    }
+    G.append(row);
+  });
+  C.scrollTop=0;
+  $("#panel").classList.add("open");
+}
+function closePanel(){$("#panel").classList.remove("open");document.querySelectorAll(".row.sel").forEach(b=>b.classList.remove("sel"))}
+
+async function load(f){
+  if(!f) return;
+  try{
+    const buf=await f.arrayBuffer();
+    if(/\.xlsx?$/i.test(f.name)){
+      const wb=XLSX.read(buf,{type:"array",cellDates:true});
+      ingest(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}));
+    }else{
+      let txt;
+      try{txt=new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch{txt=new TextDecoder("windows-1252").decode(buf)}
+      txt=txt.replace(/^\uFEFF/,"");
+      const p=Papa.parse(txt,{header:true,skipEmptyLines:true});
+      ingest(p.data);
+    }
+  }catch(e){alert("Não foi possível ler o arquivo: "+e.message)}
+}
+
+$("#pick").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{load(e.target.files[0]);e.target.value=""};
+$("#close").onclick=closePanel;
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
+const L=$("#list");
+["dragover","dragenter"].forEach(ev=>L.addEventListener(ev,e=>{e.preventDefault();L.querySelector(".drop")?.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>L.addEventListener(ev,e=>{e.preventDefault();L.querySelector(".drop")?.classList.remove("over")}));
+L.addEventListener("drop",e=>load(e.dataTransfer.files[0]));
+renderList();
+</script>
+</body>
+</html>
